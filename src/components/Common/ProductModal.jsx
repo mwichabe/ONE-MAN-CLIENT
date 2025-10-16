@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 
 // --- Constants ---
-const CART_API_URL = 'http://localhost:5000/api/cart';
+const CART_API_URL = 'https://one-man-server.onrender.com/api/cart';
 
 export const ProductModal = ({ product, onClose }) => {
     

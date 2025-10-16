@@ -4,7 +4,7 @@ import { FiMail, FiUser, FiMessageSquare, FiPhoneCall } from 'react-icons/fi';
 import { FaMapMarkerAlt } from 'react-icons/fa';
 
 // ⚠️ CHANGE THIS URL to your actual backend endpoint ⚠️
-const CONTACT_API_URL = 'http://localhost:5000/api/contact'; 
+const CONTACT_API_URL = 'https://one-man-server.onrender.com/api/contact'; 
 
 const ContactUs = () => {
     const [formData, setFormData] = useState({

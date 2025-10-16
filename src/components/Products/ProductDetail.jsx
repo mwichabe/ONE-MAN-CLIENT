@@ -3,8 +3,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 
 // --- API Endpoints ---
-const PRODUCT_API_BASE_URL = 'http://localhost:5000/api/admin/products'; 
-const CART_API_URL = 'http://localhost:5000/api/cart';
+const PRODUCT_API_BASE_URL = 'https://one-man-server.onrender.com/api/admin/products'; 
+const CART_API_URL = 'https://one-man-server.onrender.com/api/cart';
 // --- End API Endpoints ---
 
 // Define a universal placeholder image for robustness

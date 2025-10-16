@@ -13,7 +13,7 @@ import {
     Maximize2 as IconMaximize2
 } from 'lucide-react';
 // --- Configuration ---
-const API_BASE_URL = 'http://localhost:5000/api/admin/products';
+const API_BASE_URL = 'https://one-man-server.onrender.com/api/admin/products';
 
 // --- Inline SVG Icons ---
 // const IconPlus = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>;

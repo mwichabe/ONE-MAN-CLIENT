@@ -8,8 +8,8 @@ import {useAuth} from '../context/AuthContext';
 import { useCart} from '../context/CartContext';
 
 // --- Constants ---
-const API_URL = 'http://localhost:5000/api/admin/products'; 
-const CART_API_URL = 'http://localhost:5000/api/cart'; // Add Cart API URL
+const API_URL = 'https://one-man-server.onrender.com/api/admin/products'; 
+const CART_API_URL = 'https://one-man-server.onrender.com/api/cart'; // Add Cart API URL
 
 // --- Product Card Component (UPDATED with Quick Add Logic) ---
 const ProductCard = ({ product, handleProductClick, handleQuickAddToCart, addingProductId, selectedSizes, handleSizeSelect }) => {

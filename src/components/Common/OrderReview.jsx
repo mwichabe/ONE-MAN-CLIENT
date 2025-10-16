@@ -63,7 +63,7 @@ export const OrderReview = ({ formData, onPrev, placeOrder, cartItems, totalCart
     
     try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:5000/api/orders/${orderId}/payment-contact`, {
+        const response = await fetch(`https://one-man-server.onrender.com/api/orders/${orderId}/payment-contact`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ paymentContact }), 

@@ -22,7 +22,7 @@ const Footer = () => {
 
     try {
       // NOTE: Replace with your actual base URL if it's not the same as the server port
-      const API_URL = "http://localhost:5000/api/subscribe"; 
+      const API_URL = "https://one-man-server.onrender.com/api/subscribe"; 
       
       const response = await axios.post(API_URL, { email });
 

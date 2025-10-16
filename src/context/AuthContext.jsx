@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 const AuthContext = createContext();
 
 // Base URL for your authentication API
-const API_URL = 'http://localhost:5000/api/users';
+const API_URL = 'https://one-man-server.onrender.com/api/users';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

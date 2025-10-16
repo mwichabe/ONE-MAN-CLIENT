@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { HiOutlineArrowNarrowRight } from "react-icons/hi"; 
 import logo from '../assets/logo.png' // Assuming this path is correct
 
-const API_URL = 'http://localhost:5000/api/users';
+const API_URL = 'https://one-man-server.onrender.com/api/users';
 
 
 const SignUp = () => {

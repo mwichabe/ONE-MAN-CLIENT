@@ -7,8 +7,8 @@ import {useAuth} from '../context/AuthContext';
 import { useCart} from '../context/CartContext';
 
 // --- Constants ---
-const API_URL = 'http://localhost:5000/api/admin/products'; 
-const CART_API_URL = 'http://localhost:5000/api/cart';
+const API_URL = 'https://one-man-server.onrender.com/api/admin/products'; 
+const CART_API_URL = 'https://one-man-server.onrender.com/api/cart';
 const CATEGORIES = ["All", "Men", "Women", "Top Wear", "Bottom Wear", "Accessories"];
 
 const ShopPage = () => {
