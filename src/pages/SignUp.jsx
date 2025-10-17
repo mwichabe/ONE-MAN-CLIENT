@@ -94,7 +94,7 @@ const SignUp = () => {
                 Your style, your statement.
             </p>
             <p className="text-sm">
-                Join our community today and get 15% off your first purchase.
+            Discover unparalleled value with our curated Best Sellers. Limited-time offers inside!
             </p>
         </div>
 

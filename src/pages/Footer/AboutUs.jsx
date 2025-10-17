@@ -2,7 +2,7 @@ import React from 'react';
 import { Award, Zap, Heart } from 'lucide-react';
 import heroImage from '../../assets/botique_hero.png';
 import founder1 from '../../assets/Collins.png';
-//import founder2 from '../../assets/Keny.png';
+import founder2 from '../../assets/keny.png';
 
 const AboutUs = () => {
   return (
@@ -98,7 +98,7 @@ const AboutUs = () => {
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col items-center p-6">
                     <img 
                         className="h-40 w-40 object-cover rounded-full mb-4 border-4 border-gray-100 shadow-md" 
-                        src={"founder2"} 
+                        src={founder2} 
                         alt="Founder 2 Profile Picture" 
                     />
                     <div className="text-center">

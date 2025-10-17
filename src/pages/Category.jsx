@@ -9,7 +9,7 @@ import { useCart} from '../context/CartContext';
 
 // --- Constants ---
 const API_URL = 'https://one-man-server.onrender.com/api/admin/products'; 
-const CART_API_URL = 'https://one-man-server.onrender.com/api/cart'; // Add Cart API URL
+const CART_API_URL = 'https://one-man-server.onrender.com/api/cart';
 
 // --- Product Card Component (UPDATED with Quick Add Logic) ---
 const ProductCard = ({ product, handleProductClick, handleQuickAddToCart, addingProductId, selectedSizes, handleSizeSelect }) => {
@@ -47,7 +47,7 @@ const ProductCard = ({ product, handleProductClick, handleQuickAddToCart, adding
                     {product.name}
                 </h3>
                 <p className="text-2xl font-extrabold text-[#333] mb-3">
-                    ${product.price.toFixed(2)}
+                    Ksh {product.price.toFixed(2)}
                 </p>
                 
                 {/* 🔥 Size Selection Row 🔥 */}

@@ -138,14 +138,7 @@ export const AuthProvider = ({ children }) => {
 
   // Logout function
   const logout = async () => {
-    try {
-      // If your backend /logout also revokes the token server-side, keep this. 
-      // Otherwise, the essential step is removing the token locally.
-      // ⚠️ NOTE: If using Bearer tokens, the POST request here won't use the cookie, 
-      // so it needs the token in the header too, but for simple logout, removing the 
-      // token locally is usually sufficient in a token-only setup.
-      // await fetch(`${API_URL}/logout`, { method: 'POST' }); 
-      
+    try {      
       localStorage.removeItem('token');
       setUser(null);
       setIsLoggedIn(false);
