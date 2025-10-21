@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { FiMail, FiUser, FiMessageSquare, FiPhoneCall } from 'react-icons/fi';
 import { FaMapMarkerAlt } from 'react-icons/fa';
+// Import Link from react-router-dom, assuming it's available in the actual file
+import { Link } from 'react-router-dom'; 
 
-// ⚠️ CHANGE THIS URL to your actual backend endpoint ⚠️
 const CONTACT_API_URL = 'https://one-man-server.onrender.com/api/contact'; 
+const PRIMARY_COLOR = '#ea2e0e';
 
 const ContactUs = () => {
     const [formData, setFormData] = useState({
@@ -175,7 +177,19 @@ const ContactUs = () => {
                                 {loading ? 'Sending...' : 'Send Message'}
                             </button>
                         </form>
+                        {/* 🛑 REMOVED THE LINK FROM HERE */}
                     </div>
+                </div>
+
+                {/* ✅ SOLUTION: MOVE THE BACK TO HOME BUTTON HERE */}
+                <div className="mt-10 text-center">
+                    <Link 
+                        to="/" 
+                        className="inline-flex items-center px-6 py-2 text-base font-semibold text-white rounded-lg transition duration-300 hover:opacity-90"
+                        style={{ backgroundColor: PRIMARY_COLOR }}
+                    >
+                        Back to Home
+                    </Link>
                 </div>
             </div>
         </div>

@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiCheckCircle, HiPhone, HiBanknotes, HiArrowLeft, HiXMark,  } from "react-icons/hi2";
-import { HiOutlineClipboardCopy } from "react-icons/hi";
-
-// ⚠️ CONSTANT TILL NUMBER (Placeholder)
-const MPESA_TILL_NUMBER = "1234567";
+import { HiCheckCircle, HiCreditCard, HiArrowLeft, HiXMark } from "react-icons/hi2";
 
 // Helper Component for consistency
 const Spinner = () => <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#ea2e0e] mx-auto"></div>;
@@ -19,7 +15,7 @@ const DetailRow = ({ label, value, isTotal = false }) => (
     </div>
 );
 
-// Helper Component for item details
+// Helper Component for item details (kept for completeness)
 const ItemDetail = ({ title, value }) => (
     <div className="flex justify-between text-sm py-1">
         <span className="text-gray-500 font-medium">{title}:</span>
@@ -28,91 +24,101 @@ const ItemDetail = ({ title, value }) => (
 );
 
 
-export const OrderReview = ({ formData, onPrev, placeOrder, cartItems, totalCartPrice, loading, user, refreshCart }) => { // Added refreshCart prop
+export const OrderReview = ({ formData, onPrev, placeOrder, cartItems, totalCartPrice, loading, refreshCart }) => {
   const navigate = useNavigate();
   
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [orderId, setOrderId] = useState(null);
-  const [paymentContact, setPaymentContact] = useState(user?.phone || '');
-  const [contactSubmissionLoading, setContactSubmissionLoading] = useState(false);
-  const [contactSubmissionStatus, setContactSubmissionStatus] = useState(null); 
-  const [copied, setCopied] = useState(false);
+  const [paystackAuthUrl, setPaystackAuthUrl] = useState(null); // 🔑 New State for Paystack URL
+  const [paystackReference, setPaystackReference] = useState(null); // 🔑 New State for Paystack Reference
+  const [paystackLoading, setPaystackLoading] = useState(false); // 🔑 Loading state for Paystack Init
 
   // --- Calculations ---
-  // Ensure these calculations use the original totalCartPrice, which is correctly passed from CheckoutScreen
   const shippingCost = formData.shippingCost || 0;
-  const subtotal = totalCartPrice; // This is correct, it's the total from the cart before it was cleared
+  const subtotal = totalCartPrice;
   const taxRate = 0.16;
   const tax = subtotal * taxRate;
   const orderTotal = subtotal + shippingCost + tax;
 
   // --- Handlers ---
-  const handlePlaceOrderClick = async () => {
+  const initializePayment = async (id) => {
+    setPaystackLoading(true);
+    try {
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`https://one-man-server.onrender.com/api/orders/${id}/paystack-init`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${token}` 
+            },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.authorization_url) {
+            setPaystackAuthUrl(data.authorization_url);
+            setPaystackReference(data.reference);
+            setShowPaymentModal(true); // Open the new modal
+        } else {
+            // Handle Paystack initialization failure (e.g., show an error)
+            const errorMessage = data.message || 'Server did not return a valid payment URL.';
+            alert(`Payment initialization failed: ${errorMessage}`);
+            setShowPaymentModal(false);
+            setOrderId(null);
+        }
+    } catch (error) {
+        console.error('Paystack Initialization Network Error:', error);
+        alert('Failed to connect to payment gateway. Please try again.');
+        setShowPaymentModal(false);
+        setOrderId(null);
+    } finally {
+        setPaystackLoading(false);
+    }
+  }
+
+  // 🔑 Combined Place Order and Init Paystack function
+  const handlePlaceOrderAndPay = async () => {
+      setPaystackLoading(true); // Use this loading state for the whole process
+      
+      // 1. Place Order
       const data = await placeOrder(orderTotal, subtotal, tax);
       
       if (data && data.order && data.order._id) {
-          setOrderId(data.order._id);
-          setShowPaymentModal(true);
+          const newOrderId = data.order._id;
+          setOrderId(newOrderId);
+
+          // 2. Initialize Paystack Payment
+          await initializePayment(newOrderId);
       }
+      // Note: Loading state is handled inside initializePayment's finally block
   };
 
-  const handleSubmitPaymentContact = async (e) => {
-    e.preventDefault();
-    setContactSubmissionLoading(true);
-    setContactSubmissionStatus(null);
-    
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`https://one-man-server.onrender.com/api/orders/${orderId}/payment-contact`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ paymentContact }), 
-        });
 
-        if (response.ok) {
-            setContactSubmissionStatus('success');
-            // No navigation or cart clear here. Just update status.
-        } else {
-            const data = await response.json();
-            setContactSubmissionStatus('error');
-            console.error('API Error:', data.message);
-        }
-    } catch (error) {
-        console.error('Network Error:', error);
-        setContactSubmissionStatus('error');
-    } finally {
-        setContactSubmissionLoading(false);
-    }
-  };
-  
-  const handleCopy = () => {
-      navigator.clipboard.writeText(MPESA_TILL_NUMBER);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-  };
-
-  // Function to navigate and clear cart
-  const handleViewOrderStatus = () => {
-      refreshCart(); // Clear the cart when the user explicitly views their orders
-      //navigate('/orders');
+  // Function to navigate and clear cart (after payment attempt)
+  const handleProceedToPaystack = () => {
+      // 🔑 User is redirected to Paystack, we clear the cart for a fresh start
+      refreshCart();
+      window.location.href = paystackAuthUrl;
   };
 
   const handleModalDismiss = () => {
+      // 🔑 User cancels payment, they can still view order status later
       refreshCart();
       setShowPaymentModal(false);
       navigate('/app');
   };
 
   // --- Payment Modal Component (Local to OrderReview) ---
-  const PaymentModal = () => (
+  const PaystackRedirectModal = () => (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-70 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full transform transition-all p-6 space-y-6">
         
         {/* Modal Header */}
         <div className="flex justify-between items-center border-b pb-3">
           <h4 className="text-2xl font-bold text-gray-800 flex items-center">
-            <HiBanknotes className="w-7 h-7 mr-2 text-blue-600" />
-            Complete M-Pesa Payment
+            <HiCreditCard className="w-6 h-6 mr-2 text-blue-600" />
+            Proceed to Secure Payment
           </h4>
           <button onClick={handleModalDismiss} className="text-gray-400 hover:text-gray-600">
             <HiXMark className="w-6 h-6" />
@@ -120,85 +126,39 @@ export const OrderReview = ({ formData, onPrev, placeOrder, cartItems, totalCart
         </div>
 
         {/* Order Summary & Status */}
-        <div className="text-center bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <p className="text-lg text-gray-800">Order ID: <strong className="text-[#ea2e0e]">{orderId.slice(-6).toUpperCase()}</strong></p>
-            {/* The total amount displayed here should now be correct because refreshCart is moved */}
+        <div className="text-center bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <p className="text-lg text-gray-800">Order ID: <strong className="text-blue-600">{orderId.slice(-6).toUpperCase()}</strong></p>
             <p className="text-3xl font-extrabold text-red-600 mt-1">Ksh {orderTotal.toLocaleString()}</p>
-            <p className="text-sm text-yellow-800 mt-2">Please complete this payment via M-Pesa to finalize your order.</p>
+            <p className="text-sm text-blue-800 mt-2">Your payment is being handled securely by Paystack.</p>
         </div>
 
-        {/* 1. M-Pesa Instructions */}
+        {/* Paystack Details */}
         <div className="space-y-4">
-            <h5 className="text-xl font-semibold text-gray-700">Payment Steps:</h5>
-            <ol className="list-decimal list-inside space-y-3 text-gray-700 ml-4">
-                <li>Go to Lipa Na M-Pesa on your M-Pesa menu.</li>
-                <li>Select Buy Goods and Services.</li>
-                <li>Enter the Till Number:
-                    <div className="flex items-center justify-between p-3 mt-2 bg-gray-100 rounded-lg border border-gray-300 shadow-sm">
-                        <span className="text-2xl font-extrabold tracking-widest text-[#ea2e0e]">
-                            {MPESA_TILL_NUMBER}
-                        </span>
-                        <button 
-                            onClick={handleCopy} 
-                            className="flex items-center px-3 py-1 bg-white border border-[#ea2e0e] text-[#ea2e0e] rounded-lg hover:bg-gray-50 transition duration-150"
-                        >
-                            <HiOutlineClipboardCopy className="w-5 h-5 mr-1" />
-                            {copied ? 'Copied!' : 'Copy Till'}
-                        </button>
-                    </div>
-                </li>
-                <li>Enter the exact amount: Ksh {orderTotal.toLocaleString()}.</li>
-            </ol>
+            <h5 className="text-xl font-semibold text-gray-700">Payment Options:</h5>
+            <p className="text-gray-700">On the next screen, you can choose to pay with **Card, Bank Transfer, or Mobile Money (M-Pesa)**.</p>
+            
+            <div className='flex justify-between items-center p-3 bg-gray-100 rounded-lg'>
+                 <span className='font-medium text-gray-600'>Paystack Reference:</span>
+                 <span className='font-bold text-gray-800'>{paystackReference}</span>
+            </div>
         </div>
         
-        {/* 2. Phone Number Confirmation
-        <div className="border-t pt-4">
-            <h5 className="text-xl font-semibold text-gray-700 mb-3">Confirmation Contact:</h5>
-            <p className="text-sm text-gray-600 mb-4">We'll use this number to link your payment and confirm the order status.</p>
-
-            <form onSubmit={handleSubmitPaymentContact} className="flex flex-col space-y-4">
-                <div className="relative">
-                    <HiPhone className="w-5 h-5 absolute top-3 left-3 text-gray-400" />
-                    <input
-                        type="tel"
-                        pattern="[0-9]{10,12}" 
-                        value={paymentContact}
-                        onChange={(e) => setPaymentContact(e.target.value)}
-                        className="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        placeholder="e.g., 07XXXXXXXX"
-                        required
-                        disabled={contactSubmissionLoading || contactSubmissionStatus === 'success'}
-                    />
-                </div>
-                
-                <button 
-                    type="submit" 
-                    disabled={contactSubmissionLoading || paymentContact.length < 10 || contactSubmissionStatus === 'success'}
-                    className={`w-full py-3 text-white font-semibold rounded-lg transition duration-200 disabled:opacity-50 flex items-center justify-center ${
-                        contactSubmissionStatus === 'success' 
-                            ? 'bg-green-700' 
-                            : 'bg-green-600 hover:bg-green-700'
-                    }`}
-                >
-                    {contactSubmissionLoading ? (
-                        <><Spinner />Submitting...</>
-                    ) : contactSubmissionStatus === 'success' ? (
-                        <><HiCheckCircle className='w-5 h-5 mr-2'/> Contact Saved!</>
-                    ) : (
-                        'CONFIRM CONTACT FOR RECONCILIATION'
-                    )}
-                </button>
-            </form>
-        </div> */}
-        
-        {/* Footer Button - Now clears cart before navigating */}
-        {/* <button 
-            onClick={handleViewOrderStatus} // Use the new handler here
-            disabled={!orderId}
-            className="w-full py-3 bg-[#ea2e0e] text-white font-semibold rounded-lg hover:bg-[#c4250c] transition duration-200"
+        {/* Footer Button - Redirects to Paystack */}
+        <button 
+            onClick={handleProceedToPaystack} 
+            disabled={!paystackAuthUrl}
+            className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 flex items-center justify-center"
         >
-            View Order Status
-        </button> */}
+            <HiCreditCard className='w-6 h-6 mr-2' />
+            Pay Now with Paystack
+        </button>
+
+        <button 
+            onClick={handleModalDismiss} 
+            className="w-full py-2 text-gray-600 font-semibold rounded-lg hover:bg-gray-100 transition duration-200"
+        >
+            Cancel and Return Home
+        </button>
       </div>
     </div>
   );
@@ -251,17 +211,17 @@ export const OrderReview = ({ formData, onPrev, placeOrder, cartItems, totalCart
             <HiArrowLeft className="w-5 h-5 mr-1" /> Edit Details
           </button>
           <button 
-            onClick={handlePlaceOrderClick} 
-            disabled={loading}
+            onClick={handlePlaceOrderAndPay} 
+            disabled={loading || paystackLoading}
             className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            {loading ? <Spinner /> : 'PLACE ORDER & PAY'}
+            {loading || paystackLoading ? <Spinner /> : 'PLACE ORDER & PAY'}
           </button>
         </div>
       </div>
       
       {/* 2. Payment Modal Overlay */}
-      {showPaymentModal && <PaymentModal />}
+      {showPaymentModal && <PaystackRedirectModal />}
     </div>
   );
 };

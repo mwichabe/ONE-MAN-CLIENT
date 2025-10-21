@@ -15,6 +15,7 @@ import CheckoutScreen from './components/Common/CheckoutScreen';
 import ContactUs from './pages/Footer/ContactUs';
 import AboutUs from './pages/Footer/AboutUs';
 import Landing from './pages/Landing';
+import Policy from './pages/Footer/Policy';
 
 const AppRoutes = () => {
   const { isLoggedIn, authLoading } = useAuth();
@@ -63,6 +64,7 @@ const AppRoutes = () => {
       />
       <Route path="/contact" element={<ContactUs />} />
       <Route path="/about" element={<AboutUs />} />
+      <Route path="/policy" element={<Policy/>} />
 
       {/* Admin Layout - Still protected by AdminRoute component */}
       <Route path="/admin" element={<AdminRoute />}>
