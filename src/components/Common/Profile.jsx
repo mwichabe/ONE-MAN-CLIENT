@@ -209,10 +209,18 @@ const Profile = () => {
                         </span>
                     </p>
                     {user.isAdmin && (
-                        <p className="text-sm text-gray-500 mt-2">
-                            You have elevated privileges to manage the shop.
-                        </p>
-                    )}
+    <>
+        <p className="text-sm text-gray-500 mt-2">
+            You have elevated privileges to manage the shop.
+        </p>
+        <button
+            onClick={() => navigate('/admin/dashboard')} // 1. Handle Navigation
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" // 2. Apply Styling
+        >
+            Go to Admin Dashboard ⚙️
+        </button>
+    </>
+)}
                 </div>
             </div>
         </div>
