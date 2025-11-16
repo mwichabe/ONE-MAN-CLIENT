@@ -6,12 +6,12 @@ const AuthContext = createContext();
 const API_URL = 'https://one-man-server.onrender.com/api/users';
 
 const LOADING_MESSAGES = [
-  "Fetching your authentication status...",
-  "Verifying saved session token...",
-  "Almost there, please wait...",
+  "Checking authentication...",
+  "Verifying session...",
+  "Almost ready...",
 ];
-const MESSAGE_INTERVAL_MS = 2000;
-const MAX_LOADING_TIME_MS = 60000;
+const MESSAGE_INTERVAL_MS = 1000; // Reduced from 2000ms
+const MAX_LOADING_TIME_MS = 10000; // Reduced from 60000ms (60s) to 10000ms (10s)
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -21,20 +21,20 @@ export const AuthProvider = ({ children }) => {
 
   const messageIntervalRef = useRef(null);
   const maxTimeoutRef = useRef(null);
-  
+
   // Function to check user status based on the LOCAL STORAGE TOKEN
   const checkAuthStatus = async () => {
     clearTimeout(maxTimeoutRef.current);
     clearInterval(messageIntervalRef.current);
 
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
-        setUser(null);
-        setIsLoggedIn(false);
-        setAuthLoading(false);
-        setLoadingMessage("Authentication not required.");
-        return;
+      setUser(null);
+      setIsLoggedIn(false);
+      setAuthLoading(false);
+      setLoadingMessage("Authentication not required.");
+      return;
     }
 
     try {
@@ -49,33 +49,39 @@ export const AuthProvider = ({ children }) => {
 
       // Start the max loading timeout (1 minute)
       maxTimeoutRef.current = setTimeout(() => {
-          console.warn('Authentication timeout (1 minute). Clearing token.');
-          localStorage.removeItem('token'); // Clear the token!
-          setUser(null);
-          setIsLoggedIn(false);
-          setAuthLoading(false);
-          setLoadingMessage("Timeout: Failed to connect. Token cleared. Redirecting...");
-          clearInterval(messageIntervalRef.current);
-          
-          // 🟢 Redirect on timeout using window.location.href
-          window.location.href = '/';
+        console.warn('Authentication timeout (1 minute). Clearing token.');
+        localStorage.removeItem('token'); // Clear the token!
+        setUser(null);
+        setIsLoggedIn(false);
+        setAuthLoading(false);
+        setLoadingMessage("Timeout: Failed to connect. Token cleared. Redirecting...");
+        clearInterval(messageIntervalRef.current);
+
+        // 🟢 Redirect on timeout using window.location.href
+        window.location.href = '/';
       }, MAX_LOADING_TIME_MS);
-      
-      
+
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for the fetch
+
       const response = await fetch(`${API_URL}/me`, {
-          method: 'GET',
-          headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}` 
-          }
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        signal: controller.signal
       });
-      
+
+      clearTimeout(timeoutId);
+
       const data = await response.json();
 
       if (response.ok && data.user) {
-        setUser({ 
-          _id: data.user._id, 
-          name: data.user.name, 
+        setUser({
+          _id: data.user._id,
+          name: data.user.name,
           email: data.user.email,
           phone: data.user.phone,
           isAdmin: data.user.isAdmin
@@ -89,22 +95,30 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setIsLoggedIn(false);
         setLoadingMessage("Session expired. Please log in. Redirecting...");
-        
+
         // 🟢 NEW: Redirect to the home page with a slight delay
         setTimeout(() => {
-          window.location.href = '/'; 
-        }, 1000); 
+          window.location.href = '/';
+        }, 1000);
       }
     } catch (error) {
       console.error('Error fetching user status:', error);
+
+      // Handle specific error types
+      if (error.name === 'AbortError') {
+        console.warn('Authentication request timed out');
+        setLoadingMessage("Network timeout. Please check your connection.");
+      } else {
+        setLoadingMessage("Connection error. Check network. Redirecting...");
+      }
+
       localStorage.removeItem('token');
       setUser(null);
       setIsLoggedIn(false);
-      setLoadingMessage("Connection error. Check network. Redirecting...");
-      
+
       // 🟢 Redirect on error
       setTimeout(() => {
-        window.location.href = '/'; 
+        window.location.href = '/';
       }, 1000);
     } finally {
       clearInterval(messageIntervalRef.current);
@@ -118,38 +132,38 @@ export const AuthProvider = ({ children }) => {
   // Function to update user data
   const updateUser = async (updateData) => {
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
-        return { success: false, message: 'Not authenticated.' };
+      return { success: false, message: 'Not authenticated.' };
     }
 
     try {
-        const response = await fetch(`${API_URL}/profile`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify(updateData),
-        });
+      const response = await fetch(`${API_URL}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData),
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (response.ok) {
-            // Update the user state with the returned data
-            setUser(prevUser => ({
-                ...prevUser,
-                name: data.name ?? prevUser.name,
-                email: data.email ?? prevUser.email,
-                phone: data.phone ?? prevUser.phone,
-            }));
-            return { success: true, message: data.message || 'Profile updated successfully!' };
-        } else {
-            return { success: false, message: data.message || 'Failed to update profile.' };
-        }
+      if (response.ok) {
+        // Update the user state with the returned data
+        setUser(prevUser => ({
+          ...prevUser,
+          name: data.name ?? prevUser.name,
+          email: data.email ?? prevUser.email,
+          phone: data.phone ?? prevUser.phone,
+        }));
+        return { success: true, message: data.message || 'Profile updated successfully!' };
+      } else {
+        return { success: false, message: data.message || 'Failed to update profile.' };
+      }
     } catch (error) {
-        console.error('Update profile error:', error);
-        return { success: false, message: 'Network error or server connection failed.' };
+      console.error('Update profile error:', error);
+      return { success: false, message: 'Network error or server connection failed.' };
     }
   };
 
@@ -168,14 +182,14 @@ export const AuthProvider = ({ children }) => {
 
     if (response.ok) {
       localStorage.setItem('token', data.token);
-      
-      setUser({ 
-        _id: data._id, 
-        name: data.name, 
+
+      setUser({
+        _id: data._id,
+        name: data.name,
         email: data.email,
         phone: data.phone,
-        isAdmin: data.isAdmin 
-      }); 
+        isAdmin: data.isAdmin
+      });
       setIsLoggedIn(true);
       return { success: true, user: data };
     } else {
@@ -186,31 +200,31 @@ export const AuthProvider = ({ children }) => {
 
   // Logout function
   const logout = async () => {
-    try {      
+    try {
       localStorage.removeItem('token');
       setUser(null);
       setIsLoggedIn(false);
-    } catch(error) {
+    } catch (error) {
       console.error('Logout error:', error);
     }
   };
-  
+
   // --------------------------------------------------------
 
   useEffect(() => {
     checkAuthStatus();
-    
+
     // Cleanup on unmount
     return () => {
-        clearInterval(messageIntervalRef.current);
-        clearTimeout(maxTimeoutRef.current);
+      clearInterval(messageIntervalRef.current);
+      clearTimeout(maxTimeoutRef.current);
     }
   }, []);
-  
-  const contextValue = { 
-    user, 
-    isLoggedIn, 
-    authLoading, 
+
+  const contextValue = {
+    user,
+    isLoggedIn,
+    authLoading,
     login,
     logout,
     checkAuthStatus,

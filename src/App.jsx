@@ -16,6 +16,7 @@ import ContactUs from './pages/Footer/ContactUs';
 import AboutUs from './pages/Footer/AboutUs';
 import Landing from './pages/Landing';
 import Policy from './pages/Footer/Policy';
+import ProductDetail from './components/Products/ProductDetail';
 
 const AppRoutes = () => {
   const { isLoggedIn, authLoading } = useAuth();
@@ -56,6 +57,7 @@ const AppRoutes = () => {
       <Route path="/category/women" element={<CategoryPage categoryName="Women" />} />
       <Route path="/category/top-wear" element={<CategoryPage categoryName="Top Wear" />} />
       <Route path="/category/bottom-wear" element={<CategoryPage categoryName="Bottom Wear" />} />
+      <Route path="/product/:id" element={<ProductDetail />} />
       
       {/* Checkout Screen - Best practice is to protect this */}
       <Route 

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useContext, createContext } from "react";
+import { useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 
@@ -27,6 +29,46 @@ const ProductDetail = () => {
   // Destructuring isLoggedIn from the context stub
   const { isLoggedIn } = useAuth(); 
   const { refreshCart } = useCart();
+  const { id } = useParams(); // Get product ID from URL
+
+  // Check if user is logged in - if not, show login prompt
+  if (!isLoggedIn) {
+    return (
+      <div className="bg-gray-100 min-h-screen py-12 flex items-center justify-center px-4">
+        <div className="max-w-md w-full p-10 bg-white shadow-2xl rounded-xl text-center border-t-4 border-[#ea2e0e]">
+          <div className="mb-6">
+            <div className="text-6xl mb-4">🔒</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Login Required
+            </h2>
+            <p className="text-gray-600 mb-6">
+              You need to be logged in to view product details and make purchases.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <Link
+              to="/login"
+              className="w-full block px-6 py-3 bg-[#ea2e0e] text-white font-semibold rounded-lg shadow-md hover:bg-[#c4250c] transition duration-200"
+            >
+              Login to Continue
+            </Link>
+            <Link
+              to="/signup"
+              className="w-full block px-6 py-3 border-2 border-[#ea2e0e] text-[#ea2e0e] font-semibold rounded-lg hover:bg-[#ea2e0e] hover:text-white transition duration-200"
+            >
+              Don't have an account? Sign Up
+            </Link>
+            <Link
+              to="/"
+              className="block text-sm text-gray-500 hover:text-gray-700 transition duration-200"
+            >
+              ← Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,13 +80,13 @@ const ProductDetail = () => {
   const [successMessage, setSuccessMessage] = useState(''); // State for success messages
 
 
-  // Function to fetch the random product
+  // Function to fetch the specific product
   useEffect(() => {
-    const fetchRandomProduct = async () => {
+    const fetchProduct = async () => {
       try {
         setLoading(true);
         // Using the product-specific endpoint
-        const response = await fetch(`${PRODUCT_API_BASE_URL}/random`);
+        const response = await fetch(`${PRODUCT_API_BASE_URL}/${id}`);
 
         if (!response.ok) {
             // Handle non-200 responses gracefully
@@ -79,8 +121,10 @@ const ProductDetail = () => {
       }
     };
     
-    fetchRandomProduct();
-  }, []); // Run only once on mount
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]); // Run when ID changes
 
   // Helper function to format price
   const formatPrice = (price) => `Ksh ${(price).toFixed(2)}`;
