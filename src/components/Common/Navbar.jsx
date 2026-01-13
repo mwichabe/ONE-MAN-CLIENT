@@ -74,11 +74,11 @@ const Navbar = () => {
   // Only try to generate initials if the user object is present
   const userInitial = user?.name
     ? user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .substring(0, 2)
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2)
     : "U";
 
   return (
@@ -158,11 +158,10 @@ const Navbar = () => {
               <button
                 onClick={handleAuthClick}
                 className={`p-1 rounded-full transition duration-150 focus:outline-none 
-                                ${
-                                  isLoggedIn && user
-                                    ? "bg-gray-200 hover:bg-[#ea2e0e] hover:text-white"
-                                    : "text-gray-700 hover:text-[#ea2e0e]"
-                                }`}
+                                ${isLoggedIn && user
+                    ? "bg-gray-200 hover:bg-[#ea2e0e] hover:text-white"
+                    : "text-gray-700 hover:text-[#ea2e0e]"
+                  }`}
                 aria-label={isLoggedIn ? "User Profile Menu" : "Sign In"}
               >
                 {/* 🟢 MODIFIED: Check for BOTH isLoggedIn AND user */}
@@ -191,6 +190,16 @@ const Navbar = () => {
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ea2e0e]"
                   >
                     <HiOutlineUser className="w-4 h-4 mr-2" /> My Profile
+                  </Link>
+                  <Link
+                    to="reviews"
+                    onClick={() => {
+                      navigate("reviews");
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ea2e0e]"
+                  >
+                    <HiOutlineTag className="w-4 h-4 mr-2" /> My Reviews
                   </Link>
                   <button
                     onClick={handleLogout}
@@ -224,9 +233,8 @@ const Navbar = () => {
 
       {/* Mobile Navigation Drawer */}
       <div
-        className={`fixed top-0 left-0 w-3/4 sm:w-1/2 h-full bg-white shadow-2xl transform transition-transform duration-300 z-50 ${
-          navDrawerOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 w-3/4 sm:w-1/2 h-full bg-white shadow-2xl transform transition-transform duration-300 z-50 ${navDrawerOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="p-6">
           <div className="flex justify-between items-center mb-8 border-b pb-4">
@@ -295,6 +303,14 @@ const Navbar = () => {
                 >
                   <HiOutlineUser className="w-6 h-6 mr-2 text-[#ea2e0e]" /> My
                   Profile
+                </Link>
+                <Link
+                  to="/reviews"
+                  onClick={toggleNavDrawer}
+                  className="flex items-center text-lg font-medium text-gray-700 hover:text-[#ea2e0e]"
+                >
+                  <HiOutlineTag className="w-6 h-6 mr-2 text-[#ea2e0e]" /> My
+                  Reviews
                 </Link>
                 <button
                   onClick={() => {

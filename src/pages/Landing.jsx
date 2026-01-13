@@ -1,115 +1,74 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import logo from '../assets/logo.png';
+import { useAuth } from '../context/AuthContext';
+import { ProductCard } from '../components/Common/productCard';
 
 const PRIMARY_COLOR = '#ea2e0e';
-const HOVER_COLOR = '#c4250c';
 const API_URL = 'https://one-man-server.onrender.com/api/admin/products';
-const BYPASS_KEY = 'NIVORA_ADMIN_TEST_BYPASS_2025';
-import logo from '../assets/logo.png';
+const REVIEWS_API_URL = 'https://one-man-server.onrender.com/api/reviews';
 
-// Placeholder logo component
 const Logo = () => (
-    <div className="flex items-center">
-        <div
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm mr-3"
-            style={{ backgroundColor: PRIMARY_COLOR }}
-        >
-            <img src={logo} alt="OM" />
+    <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-lg overflow-hidden">
+            <img src={logo} alt="ONE MAN" className="h-full w-full object-cover" />
         </div>
-        <span className="text-xl font-bold" style={{ color: PRIMARY_COLOR }}>ONE MAN</span>
+        <span className="text-xl font-semibold text-gray-900">ONE MAN</span>
     </div>
 );
-
-// Helper component for a single product card
-const ProductCard = ({ product }) => {
-    const imageUrl = product.imageUrls && product.imageUrls.length > 0
-        ? product.imageUrls[0]
-        : `https://placehold.co/600x400/9ca3af/ffffff?text=Image+Missing`;
-
-    console.log(`Product ${product.name} imageUrl:`, imageUrl); // Debug: Check image URL
-
-    return (
-        <article className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group">
-            {/* Image Container with Overlay */}
-            <div className="w-full aspect-square overflow-hidden bg-gray-100">
-                <img
-                    src={imageUrl}
-                    alt={`Image of ${product.name}`}
-                    className="w-full h-full object-cover"
-                    onLoad={() => console.log(`✅ Image loaded: ${product.name}`)}
-                    onError={(e) => {
-                        console.error(`❌ Image failed to load for ${product.name}:`, imageUrl);
-                        e.target.src = `https://placehold.co/600x400/9ca3af/ffffff?text=Image+Missing`;
-                    }}
-                />
-                {/* New Arrival Badge */}
-                <div className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
-                    New
-                </div>
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
-                    <Link
-                        to={`/product/${product._id}`}
-                        className="opacity-0 group-hover:opacity-100 bg-white text-gray-900 px-6 py-2.5 rounded-full font-semibold transition-all duration-300 transform scale-90 group-hover:scale-100 shadow-lg hover:shadow-xl"
-                        aria-label={`View details for ${product.name}`}
-                    >
-                        View Details
-                    </Link>
-                </div>
-            </div>
-            <div className="p-5 flex flex-col justify-between min-h-[144px]">
-                <div>
-                    {/* Category Badge */}
-                    {product.category && (
-                        <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1 rounded-full mb-2">
-                            {product.category}
-                        </span>
-                    )}
-                    <h3 className="text-lg font-bold text-gray-900 truncate mb-1" title={product.name}>
-                        {product.name}
-                    </h3>
-                    {/* Short Description */}
-                    {product.description && (
-                        <p className="text-sm text-gray-600 line-clamp-2 mb-2" title={product.description}>
-                            {product.description.length > 50 ? product.description.substring(0, 50) + '...' : product.description}
-                        </p>
-                    )}
-                </div>
-                <div className="flex justify-between items-center mt-3">
-                    <p className="text-xl font-bold" style={{ color: PRIMARY_COLOR }}>
-                        ${product.price ? product.price.toFixed(2) : 'N/A'}
-                    </p>
-                    {/* Rating */}
-                    <div className="flex items-center">
-                        <span className="text-yellow-400 text-sm" aria-label="Rating: 4.5 out of 5 stars">★★★★☆</span>
-                        <span className="text-gray-500 text-xs ml-1">(4.5)</span>
-                    </div>
-                </div>
-            </div>
-        </article>
-    );
-};
 
 const Landing = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Get user authentication state
+    const { user, isLoggedIn } = useAuth();
+
+    // Review state management
+    const [reviews, setReviews] = useState([]);
+    const [reviewForm, setReviewForm] = useState({
+        name: '',
+        rating: 5,
+        comment: ''
+    });
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+    const [editingReview, setEditingReview] = useState(null);
+
+    // Fetch reviews from API
+    const fetchReviews = async () => {
+        try {
+            const response = await axios.get(`${REVIEWS_API_URL}`);
+            setReviews(response.data);
+        } catch (err) {
+            console.error('Failed to fetch reviews:', err);
+        }
+    };
+
+    // Fetch reviews on component mount
+    useEffect(() => {
+        fetchReviews();
+    }, []);
+
+    // Update review form name when user logs in
+    useEffect(() => {
+        if (user && user.name) {
+            setReviewForm(prev => ({ ...prev, name: user.name }));
+        }
+    }, [user]);
+
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 const response = await axios.get(`${API_URL}`, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                 });
-                console.log('API Response:', response.data); // Debug: Check what products are returned
                 setProducts(response.data);
                 setError(null);
             } catch (err) {
-                console.error("Failed to fetch public products:", err);
-                setError("Could not load featured products. Please try again later.");
+                console.error("Failed to fetch products:", err);
+                setError("Could not load products. Please try again later.");
             } finally {
                 setLoading(false);
             }
@@ -122,37 +81,37 @@ const Landing = () => {
         if (loading) {
             return (
                 <div className="text-center py-16">
-                    <div
-                        className="animate-spin rounded-full h-12 w-12 border-b-4 mx-auto"
-                        style={{ borderColor: PRIMARY_COLOR }}
-                        role="status"
-                        aria-label="Loading products"
-                    ></div>
-                    <p className="mt-4 text-gray-600 text-lg">Loading our exclusive collection...</p>
+                    <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900"></div>
+                    <p className="mt-4 text-gray-600">Loading products...</p>
                 </div>
             );
         }
 
         if (error) {
             return (
-                <div className="text-center py-10 px-4 bg-red-50 border border-red-200 rounded-xl" role="alert">
-                    <p className="text-red-600 font-medium text-lg">⚠️ {error}</p>
-                    <p className="text-sm text-red-500 mt-2">Please check back soon.</p>
+                <div className="text-center py-12 px-4 bg-red-50 border border-red-200 rounded-lg">
+                    <svg className="w-12 h-12 text-red-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-red-700 font-medium">{error}</p>
                 </div>
             );
         }
 
         if (products.length === 0) {
             return (
-                <div className="text-center py-10 px-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                    <p className="text-yellow-700 font-medium text-lg">🎉 Coming Soon!</p>
-                    <p className="text-sm text-yellow-600 mt-2">Our exclusive collection is being curated. Check back soon!</p>
+                <div className="text-center py-12 px-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <p className="text-gray-700 font-medium">No products available yet</p>
+                    <p className="text-sm text-gray-500 mt-2">Check back soon for our latest collection</p>
                 </div>
             );
         }
 
         return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {products.map((product) => (
                     <ProductCard key={product._id} product={product} />
                 ))}
@@ -160,23 +119,180 @@ const Landing = () => {
         );
     };
 
+    // Handle review form input changes
+    const handleReviewInputChange = (e) => {
+        const { name, value } = e.target;
+        setReviewForm(prev => ({
+            ...prev,
+            [name]: name === 'rating' ? parseInt(value) : value
+        }));
+    };
+
+    // Handle review submission
+    const handleReviewSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!isLoggedIn) {
+            alert('Please log in to submit a review');
+            return;
+        }
+
+        if (!reviewForm.name.trim() || !reviewForm.comment.trim()) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        setIsSubmittingReview(true);
+
+        try {
+            const token = localStorage.getItem('token');
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+
+            let response;
+            if (editingReview) {
+                // Update existing review
+                response = await axios.put(
+                    `${REVIEWS_API_URL}/${editingReview._id}`,
+                    {
+                        name: reviewForm.name.trim(),
+                        rating: reviewForm.rating,
+                        comment: reviewForm.comment.trim()
+                    },
+                    config
+                );
+            } else {
+                // Create new review
+                response = await axios.post(
+                    `${REVIEWS_API_URL}`,
+                    {
+                        name: reviewForm.name.trim(),
+                        rating: reviewForm.rating,
+                        comment: reviewForm.comment.trim()
+                    },
+                    config
+                );
+            }
+
+            // Refresh reviews list
+            await fetchReviews();
+
+            // Reset form
+            setReviewForm({
+                name: user?.name || '',
+                rating: 5,
+                comment: ''
+            });
+            setEditingReview(null);
+
+            alert(editingReview ? 'Review updated successfully!' : 'Review submitted successfully!');
+        } catch (err) {
+            console.error('Failed to submit review:', err);
+            alert(err.response?.data?.message || 'Failed to submit review. Please try again.');
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
+
+    // Handle review deletion
+    const handleDeleteReview = async (reviewId) => {
+        if (!isLoggedIn) {
+            alert('Please log in to delete reviews');
+            return;
+        }
+
+        if (confirm('Are you sure you want to delete this review?')) {
+            try {
+                const token = localStorage.getItem('token');
+                const config = {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                };
+
+                await axios.delete(`${REVIEWS_API_URL}/${reviewId}`, config);
+
+                // Refresh reviews list
+                await fetchReviews();
+
+                alert('Review deleted successfully!');
+            } catch (err) {
+                console.error('Failed to delete review:', err);
+                alert(err.response?.data?.message || 'Failed to delete review. Please try again.');
+            }
+        }
+    };
+
+    // Handle review editing
+    const handleEditReview = (review) => {
+        if (!isLoggedIn) {
+            alert('Please log in to edit reviews');
+            return;
+        }
+
+        setEditingReview(review);
+        setReviewForm({
+            name: review.name,
+            rating: review.rating,
+            comment: review.comment
+        });
+    };
+
+    // Cancel editing
+    const handleCancelEdit = () => {
+        setEditingReview(null);
+        setReviewForm({
+            name: user?.name || '',
+            rating: 5,
+            comment: ''
+        });
+    };
+
+    // Star rating component
+    const StarRating = ({ rating, onChange, interactive = false }) => {
+        return (
+            <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                        key={star}
+                        type={interactive ? "button" : ""}
+                        onClick={interactive ? () => onChange(star) : undefined}
+                        className={`${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform`}
+                        disabled={!interactive}
+                    >
+                        <svg
+                            className={`w-5 h-5 ${star <= rating ? 'text-yellow-400' : 'text-gray-300'} fill-current`}
+                            viewBox="0 0 20 20"
+                        >
+                            <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                        </svg>
+                    </button>
+                ))}
+            </div>
+        );
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex flex-col">
-            {/* Navigation Bar */}
-            <nav className="w-full bg-white shadow-md border-b border-gray-200 sticky top-0 z-50" role="navigation">
+        <div className="min-h-screen bg-white flex flex-col">
+            {/* Navigation */}
+            <nav className="border-b border-gray-200 bg-white sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
                         <Logo />
-                        <div className="flex items-center space-x-3 sm:space-x-4">
+                        <div className="flex items-center gap-4">
                             <Link
                                 to="/login"
-                                className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium transition duration-200 hover:bg-gray-100"
+                                className="text-sm font-medium text-gray-700 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
                             >
                                 Log In
                             </Link>
                             <Link
                                 to="/signup"
-                                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+                                className="text-sm font-medium text-white px-6 py-2.5 rounded-lg transition-all hover:opacity-90"
                                 style={{ backgroundColor: PRIMARY_COLOR }}
                             >
                                 Sign Up
@@ -186,170 +302,233 @@ const Landing = () => {
                 </div>
             </nav>
 
-            {/* Main Content */}
+            {/* Hero Section */}
             <main className="flex-1">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-
-                    {/* Hero Section */}
-                    <header className="text-center py-12 sm:py-16 lg:py-20 bg-gradient-to-r from-white via-gray-50 to-white rounded-3xl shadow-xl border border-gray-100 mb-12 sm:mb-16">
-                        <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-gray-900 tracking-tight leading-tight mb-4 sm:mb-6 px-4">
-                            Elevate Your Style with
-                            <span className="block mt-2" style={{ color: PRIMARY_COLOR }}>ONE MAN</span>
-                        </h1>
-                        <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 max-w-3xl mx-auto mb-8 sm:mb-10 leading-relaxed px-4">
-                            Discover premium fashion curated for the modern gentleman. Join thousands of satisfied customers in our exclusive community.
-                        </p>
-
-                        {/* Key Stats */}
-                        <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-10 px-4">
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
-                                <div className="text-3xl sm:text-4xl font-bold" style={{ color: PRIMARY_COLOR }}>10K+</div>
-                                <div className="text-sm sm:text-base text-gray-600 mt-1">Happy Customers</div>
-                            </div>
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
-                                <div className="text-3xl sm:text-4xl font-bold" style={{ color: PRIMARY_COLOR }}>500+</div>
-                                <div className="text-sm sm:text-base text-gray-600 mt-1">Premium Products</div>
-                            </div>
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
-                                <div className="text-3xl sm:text-4xl font-bold" style={{ color: PRIMARY_COLOR }}>99%</div>
-                                <div className="text-sm sm:text-base text-gray-600 mt-1">Satisfaction Rate</div>
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center px-4 sm:px-6">
-                            <Link
-                                to="/signup"
-                                className="w-full sm:w-auto px-8 py-4 text-base sm:text-lg font-semibold text-white rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl text-center"
-                                style={{
-                                    backgroundColor: PRIMARY_COLOR,
-                                    boxShadow: `0 10px 30px rgba(234, 46, 14, 0.4)`
-                                }}
-                            >
-                                Get Started - Sign Up
-                            </Link>
-                            <Link
-                                to="/login"
-                                className="w-full sm:w-auto px-8 py-4 text-base sm:text-lg font-semibold border-2 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 text-center bg-white hover:shadow-xl"
-                                style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
-                            >
-                                Already a Member? Log In
-                            </Link>
-                        </div>
-                    </header>
-
-                    {/* Features Section */}
-                    <section className="mb-12 sm:mb-16" aria-labelledby="features-heading">
-                        <h2 id="features-heading" className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 text-center mb-8 sm:mb-12">
-                            Why Choose ONE MAN?
-                        </h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-                            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                                <div className="text-5xl mb-4" role="img" aria-label="Premium Quality">👔</div>
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3">Premium Quality</h3>
-                                <p className="text-sm sm:text-base text-gray-600 leading-relaxed">Handpicked garments from top designers, ensuring unmatched style and durability.</p>
-                            </div>
-                            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                                <div className="text-5xl mb-4" role="img" aria-label="Fast Shipping">🚚</div>
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3">Fast Shipping</h3>
-                                <p className="text-sm sm:text-base text-gray-600 leading-relaxed">Free worldwide shipping with express delivery options for premium members.</p>
-                            </div>
-                            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                                <div className="text-5xl mb-4" role="img" aria-label="Secure Payments">🔒</div>
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3">Secure Payments</h3>
-                                <p className="text-sm sm:text-base text-gray-600 leading-relaxed">256-bit SSL encryption and multiple payment methods for peace of mind.</p>
-                            </div>
-                            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                                <div className="text-5xl mb-4" role="img" aria-label="Investor Ready">💼</div>
-                                <h3 className="text-xl font-semibold text-gray-900 mb-3">Investor Ready</h3>
-                                <p className="text-sm sm:text-base text-gray-600 leading-relaxed">Scalable platform with proven growth metrics and a loyal customer base.</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Testimonials Section */}
-                    <section className="mb-12 sm:mb-16" aria-labelledby="testimonials-heading">
-                        <h2 id="testimonials-heading" className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 text-center mb-8 sm:mb-12">
-                            What Our Customers Say
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-                            <blockquote className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                                <div className="text-yellow-400 text-xl mb-3" aria-label="5 out of 5 stars">★★★★★</div>
-                                <p className="text-sm sm:text-base text-gray-600 mb-4 leading-relaxed italic">"ONE MAN has revolutionized my wardrobe. The quality is exceptional and the style is timeless."</p>
-                                <footer className="text-xs sm:text-sm font-semibold text-gray-800">— Alex Johnson, Entrepreneur</footer>
-                            </blockquote>
-                            <blockquote className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                                <div className="text-yellow-400 text-xl mb-3" aria-label="5 out of 5 stars">★★★★★</div>
-                                <p className="text-sm sm:text-base text-gray-600 mb-4 leading-relaxed italic">"Fast shipping and secure payments. This platform is built for the modern businessman."</p>
-                                <footer className="text-xs sm:text-sm font-semibold text-gray-800">— Michael Chen, Investor</footer>
-                            </blockquote>
-                            <blockquote className="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                                <div className="text-yellow-400 text-xl mb-3" aria-label="5 out of 5 stars">★★★★★</div>
-                                <p className="text-sm sm:text-base text-gray-600 mb-4 leading-relaxed italic">"The attention to detail and customer service is unmatched. Highly recommend!"</p>
-                                <footer className="text-xs sm:text-sm font-semibold text-gray-800">— David Smith, CEO</footer>
-                            </blockquote>
-                        </div>
-                    </section>
-
-                    {/* Featured Products Section */}
-                    <section
-                        className="bg-white p-6 sm:p-8 lg:p-10 rounded-2xl shadow-2xl border-t-4 mb-12"
-                        style={{ borderColor: PRIMARY_COLOR }}
-                        aria-labelledby="products-heading"
-                    >
-                        <h2 id="products-heading" className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-6 sm:mb-8 border-b-2 pb-4">
-                            Our Exclusive Collection 💎
-                        </h2>
-
-                        {renderProductContent()}
-
-                        <div className="text-center mt-8 sm:mt-10">
-                            <p className="text-base sm:text-lg text-gray-700 font-medium">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <section className="py-16 lg:py-24">
+                        <div className="text-center max-w-4xl mx-auto">
+                            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 tracking-tight mb-6">
+                                Premium Fashion for Modern Styling
+                            </h1>
+                            <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+                                Discover curated collections that elevate your style.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
                                 <Link
                                     to="/signup"
-                                    className="font-bold underline hover:no-underline transition duration-200"
-                                    style={{ color: PRIMARY_COLOR }}
+                                    className="px-8 py-4 text-base font-medium text-white rounded-lg transition-all hover:opacity-90"
+                                    style={{ backgroundColor: PRIMARY_COLOR }}
                                 >
-                                    Sign Up
+                                    Get Started
                                 </Link>
-                                {' '}to browse the full catalog and unlock exclusive deals
-                            </p>
+                                <Link
+                                    to="/login"
+                                    className="px-8 py-4 text-base font-medium text-gray-900 bg-white border-2 border-gray-900 rounded-lg hover:bg-gray-50 transition-all"
+                                >
+                                    Sign In
+                                </Link>
+                            </div>
                         </div>
                     </section>
+
+                    {/* Features */}
+                    <section className="py-16 border-t border-gray-200">
+                        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-12">
+                            Why Choose ONE MAN
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                            <div className="text-center">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-lg mb-4">
+                                    <svg className="w-8 h-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Premium Quality</h3>
+                                <p className="text-sm text-gray-600">Handpicked garments from top designers</p>
+                            </div>
+                            <div className="text-center">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-lg mb-4">
+                                    <svg className="w-8 h-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Fast Shipping</h3>
+                                <p className="text-sm text-gray-600">Worldwide shipping available</p>
+                            </div>
+                            <div className="text-center">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-lg mb-4">
+                                    <svg className="w-8 h-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Secure Payments</h3>
+                                <p className="text-sm text-gray-600">256-bit SSL encryption guaranteed</p>
+                            </div>
+                            <div className="text-center">
+                                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-lg mb-4">
+                                    <svg className="w-8 h-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Customer First</h3>
+                                <p className="text-sm text-gray-600">24/7 support and easy returns</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Products */}
+                    <section className="py-16 border-t border-gray-200">
+                        <div className="flex justify-between items-center mb-8">
+                            <div>
+                                <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+                                    Featured Collection
+                                </h2>
+                                <p className="text-gray-600">Explore our handpicked selection</p>
+                            </div>
+                        </div>
+                        {renderProductContent()}
+                        <div className="text-center mt-12">
+                            <p className="text-gray-600 mb-4">
+                                Want to see more? Join our community today
+                            </p>
+                            <Link
+                                to="/signup"
+                                className="inline-block text-sm font-medium text-white px-8 py-3 rounded-lg transition-all hover:opacity-90"
+                                style={{ backgroundColor: PRIMARY_COLOR }}
+                            >
+                                Sign Up for Full Access
+                            </Link>
+                        </div>
+                    </section>
+
+                    {/* Customer Reviews */}
+                    <section className="py-16 border-t border-gray-200">
+                        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-12">
+                            Customer Reviews
+                        </h2>
+
+                        {/* Reviews Display */}
+                        <div className="max-w-6xl mx-auto">
+                            {reviews.length === 0 ? (
+                                <div className="text-center py-12 px-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    <p className="text-gray-700 font-medium mb-2">No reviews yet</p>
+                                    <p className="text-sm text-gray-500">
+                                        {isLoggedIn
+                                            ? "Be the first to share your experience!"
+                                            : "Log in to share your experience with ONE MAN!"
+                                        }
+                                    </p>
+                                    {!isLoggedIn && (
+                                        <div className="mt-4">
+                                            <Link
+                                                to="/login"
+                                                className="inline-block px-6 py-2 text-white font-medium rounded-lg transition-all hover:opacity-90"
+                                                style={{ backgroundColor: PRIMARY_COLOR }}
+                                            >
+                                                Log In to Review
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                    {reviews.map((review) => (
+                                        <div key={review._id} className="bg-gray-50 p-6 rounded-lg border border-gray-200 relative group">
+                                            {/* Action buttons for review owner */}
+                                            {isLoggedIn && user && review.user && review.user._id === user._id && (
+                                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {/* Edit button */}
+                                                    <button
+                                                        onClick={() => handleEditReview(review)}
+                                                        className="text-blue-500 hover:text-blue-700"
+                                                        aria-label="Edit review"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                    </button>
+
+                                                    {/* Delete button */}
+                                                    <button
+                                                        onClick={() => handleDeleteReview(review._id)}
+                                                        className="text-red-500 hover:text-red-700"
+                                                        aria-label="Delete review"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Rating */}
+                                            <div className="flex gap-1 mb-3">
+                                                <StarRating rating={review.rating} />
+                                            </div>
+
+                                            {/* Review */}
+                                            <p className="text-gray-700 mb-4 leading-relaxed">
+                                                "{review.comment}"
+                                            </p>
+
+                                            {/* Author info */}
+                                            <div className="border-t border-gray-200 pt-3">
+                                                <div className="font-medium text-gray-900">{review.name}</div>
+                                                <div className="text-sm text-gray-600">
+                                                    {new Date(review.createdAt).toLocaleDateString()}
+                                                    {isLoggedIn && user && review.user && review.user._id === user._id && (
+                                                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Your Review</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Call to action for logged in users */}
+                            {isLoggedIn && reviews.length > 0 && (
+                                <div className="text-center mt-12">
+                                    <Link
+                                        to="/reviews"
+                                        className="inline-block text-sm font-medium text-white px-8 py-3 rounded-lg transition-all hover:opacity-90"
+                                        style={{ backgroundColor: PRIMARY_COLOR }}
+                                    >
+                                        Manage Your Reviews
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
                 </div>
             </main>
 
             {/* Footer */}
-            <footer className="bg-gray-50 border-t border-gray-200 mt-auto" role="contentinfo">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <p className="text-sm sm:text-base text-center text-gray-600 mb-4">
-                        &copy; {new Date().getFullYear()} ONE MAN Boutique. All rights reserved.
-                    </p>
-                    <nav className="flex flex-wrap justify-center items-center gap-2 sm:gap-4" aria-label="Footer navigation">
-                        <Link
-                            to="/about"
-                            className="text-sm sm:text-base hover:underline transition duration-200"
-                            style={{ color: PRIMARY_COLOR }}
-                        >
-                            About
-                        </Link>
-                        <span className="text-gray-400">|</span>
-                        <Link
-                            to="/contact"
-                            className="text-sm sm:text-base hover:underline transition duration-200"
-                            style={{ color: PRIMARY_COLOR }}
-                        >
-                            Contact
-                        </Link>
-                        <span className="text-gray-400">|</span>
-                        <Link
-                            to="/policy"
-                            className="text-sm sm:text-base hover:underline transition duration-200"
-                            style={{ color: PRIMARY_COLOR }}
-                        >
-                            Privacy Policy
-                        </Link>
-                    </nav>
+            <footer className="bg-gray-50 border-t border-gray-200 mt-16">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="text-center md:text-left">
+                            <Logo />
+                            <p className="text-sm text-gray-600 mt-2">
+                                &copy; {new Date().getFullYear()} ONE MAN. All rights reserved.
+                            </p>
+                        </div>
+                        <div className="flex gap-8">
+                            <Link to="/about" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                About
+                            </Link>
+                            <Link to="/contact" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                Contact
+                            </Link>
+                            <Link to="/policy" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                Privacy Policy
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </footer>
         </div>
