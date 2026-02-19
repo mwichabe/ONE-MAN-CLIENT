@@ -1,500 +1,308 @@
-import React, { useState, useEffect, useContext, createContext } from "react";
-import { useParams } from "react-router-dom";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 
-// --- API Endpoints ---
+const PRIMARY = '#ea2e0e';
 const PRODUCT_API_BASE_URL = 'https://one-man-server.onrender.com/api/admin/products';
 const CART_API_URL = 'https://one-man-server.onrender.com/api/cart';
-// --- End API Endpoints ---
+const PLACEHOLDER = 'https://placehold.co/800x1000/f5f4f2/999999?text=No+Image';
+const DISCOUNT_RATE = 0.20;
 
-// Define a universal placeholder image for robustness
-const PLACEHOLDER_IMAGE = 'https://placehold.co/600x600/CCCCCC/666666?text=No+Image';
-
-const CheckIcon = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={2.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
+/* ─── Skeleton ─── */
+const DetailSkeleton = () => (
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, minHeight: 600, background: '#fff' }}>
+    <style>{`@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(200%); } }`}</style>
+    {[0,1].map(i => (
+      <div key={i} style={{ background: '#f5f4f2', position: 'relative', overflow: 'hidden', aspectRatio: i === 0 ? '3/4' : 'auto', padding: i === 1 ? 48 : 0 }}>
+        {i === 0 && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)', animation: 'shimmer 1.4s infinite' }} />}
+        {i === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {[60, 40, 200, 120, 80].map((w, j) => (
+              <div key={j} style={{ height: j === 0 ? 48 : j === 1 ? 32 : j === 2 ? 14 : j === 3 ? 44 : 52, width: `${w}%`, background: '#ebebeb', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent)', animation: `shimmer 1.4s infinite ${j*0.1}s` }} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
 );
 
 const ProductDetail = () => {
-  // Destructuring isLoggedIn from the context stub
   const { isLoggedIn } = useAuth();
   const { refreshCart } = useCart();
-  const { id } = useParams(); // Get product ID from URL
+  const { id } = useParams();
 
-  // Check if user is logged in - if not, show login prompt
-  if (!isLoggedIn) {
-    return (
-      <div className="bg-gray-100 min-h-screen py-12 flex items-center justify-center px-4">
-        <div className="max-w-md w-full p-10 bg-white shadow-2xl rounded-xl text-center border-t-4 border-[#ea2e0e]">
-          <div className="mb-6">
-            <div className="text-6xl mb-4">🔒</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              Login Required
-            </h2>
-            <p className="text-gray-600 mb-6">
-              You need to be logged in to view product details and make purchases.
-            </p>
-          </div>
-          <div className="space-y-3">
-            <Link
-              to="/login"
-              className="w-full block px-6 py-3 bg-[#ea2e0e] text-white font-semibold rounded-lg shadow-md hover:bg-[#c4250c] transition duration-200"
-            >
-              Login to Continue
-            </Link>
-            <Link
-              to="/signup"
-              className="w-full block px-6 py-3 border-2 border-[#ea2e0e] text-[#ea2e0e] font-semibold rounded-lg hover:bg-[#ea2e0e] hover:text-white transition duration-200"
-            >
-              Don't have an account? Sign Up
-            </Link>
-            <Link
-              to="/"
-              className="block text-sm text-gray-500 hover:text-gray-700 transition duration-200"
-            >
-              ← Back to Home
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isAdding, setIsAdding] = useState(false); // New state for add to cart loading
-
+  const [product, setProduct]         = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(''); // State for success messages
+  const [selectedSize, setSelectedSize]   = useState(null);
+  const [isAdding, setIsAdding]       = useState(false);
+  const [toast, setToast]             = useState(null);
 
+  const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3500); };
 
-  // Function to fetch specific product
   useEffect(() => {
     const fetchProduct = async () => {
-      console.log('Fetching product with ID:', id);
-
-      let productId = id;
-
-      // If no ID provided, fetch a random product
-      if (!id) {
-        console.log('No ID provided, fetching random product');
-        try {
-          const randomResponse = await fetch(`${PRODUCT_API_BASE_URL}/random`);
-          if (randomResponse.ok) {
-            const randomProduct = await randomResponse.json();
-            productId = randomProduct._id;
-            console.log('Fetched random product with ID:', productId);
-          } else {
-            throw new Error('Could not fetch random product');
-          }
-        } catch (err) {
-          console.error('Failed to fetch random product:', err);
-          setLoading(false);
-          setError('Unable to load a product. Please try again.');
-          return;
-        }
-      }
-
-      // Add timeout to prevent infinite loading
-      const timeout = setTimeout(() => {
-        console.log('Request timeout - setting error state');
-        setLoading(false);
-        setError('Request timed out. Please try again.');
-        setProduct(null);
-      }, 10000); // 10 second timeout
-
+      setLoading(true); setError(null);
+      const timeout = setTimeout(() => { setLoading(false); setError('Request timed out. Please try again.'); }, 10000);
       try {
-        setLoading(true);
-        setError(null);
-        console.log('Starting fetch for:', `${PRODUCT_API_BASE_URL}/${productId}`);
-
-        // Using product-specific endpoint
-        const response = await fetch(`${PRODUCT_API_BASE_URL}/${productId}`);
-        clearTimeout(timeout); // Clear timeout if request completes
-        console.log('Response status:', response.status);
-
-        if (!response.ok) {
-          // Handle non-200 responses gracefully
-          if (response.status === 404) {
-            console.log('Product not found (404)');
-            setProduct(null);
-            setError("Product not found");
-            setLoading(false);
-            return;
-          }
-          const errorText = await response.text();
-          console.error("Server Error Response:", errorText);
-          throw new Error(`Failed to fetch product. Status: ${response.status}`);
+        let pid = id;
+        if (!pid) {
+          const r = await fetch(`${PRODUCT_API_BASE_URL}/random`);
+          if (!r.ok) throw new Error('Could not fetch product');
+          pid = (await r.json())._id;
         }
-
-        const data = await response.json();
-        console.log('Product data received:', data);
-
-        // Check if data is null or invalid
-        if (!data || !data.name) {
-          console.log('Invalid product data received');
-          setProduct(null);
-          setError("Product not found");
-          setLoading(false);
-          return;
-        }
-
+        const res = await fetch(`${PRODUCT_API_BASE_URL}/${pid}`);
+        clearTimeout(timeout);
+        if (res.status === 404) { setProduct(null); setError('Product not found'); return; }
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        if (!data?.name) { setProduct(null); setError('Product not found'); return; }
         setProduct(data);
-        setError(null); // Clear any previous errors
-
-        // Safely set selectedImage state
-        const firstImage = data.imageUrls && data.imageUrls.length > 0
-          ? data.imageUrls[0]
-          : PLACEHOLDER_IMAGE;
-
-        setSelectedImage(firstImage);
-        console.log('Product loaded successfully');
-
+        setSelectedImage(data.imageUrls?.[0] || PLACEHOLDER);
       } catch (err) {
-        clearTimeout(timeout); // Clear timeout on error
-        console.error("Fetch Error:", err);
-        setError(err.message || "We encountered an issue loading product data.");
+        clearTimeout(timeout);
+        setError(err.message || 'Failed to load product.');
         setProduct(null);
+      } finally {
         setLoading(false);
       }
     };
-
     fetchProduct();
-  }, [id]); // Run when ID changes
+  }, [id]);
 
-  // Helper function to format price
-  const formatPrice = (price) => `Ksh ${(price).toFixed(2)}`;
-
-  // --- Derived Calculations (moved up to be available for handleAddToCart) ---
-  let originalPrice = 0;
-  let discountedPrice = 0;
-  const DISCOUNT_RATE = 0.20; // Fixed 20% discount
-
-  if (product) {
-    originalPrice = product.price;
-    discountedPrice = originalPrice * (1 - DISCOUNT_RATE);
-    // Note: discountPercentage is still calculated for display later
-  }
-  // ----------------------------
-
-  // Handles the API call to add the item to the cart
   const handleAddToCart = async () => {
+    if (!isLoggedIn) { showToast('Please log in to add items to cart.', 'error'); return; }
+    if (product?.sizes?.length > 0 && !selectedSize) { showToast('Please select a size first.', 'error'); return; }
 
-    // Pre-check: Not logged in
-    if (!isLoggedIn) {
-      setError("You must be logged in to add items to your cart.");
-      setTimeout(() => setError(null), 5000);
-      return;
-    }
-
-    // Pre-check: Size not selected
-    if (product.sizes.length > 0 && !selectedSize) {
-      setError("Please select a size before adding to cart.");
-      setTimeout(() => setError(null), 5000);
-      return;
-    }
-
-    // Pre-check: Product data missing
-    if (!product) {
-      setError("Cannot add to cart: Product data is unavailable.");
-      setTimeout(() => setError(null), 5000);
-      return;
-    }
-
-    setError(null);
-    setSuccessMessage('');
     setIsAdding(true);
-
-    // Assuming DISCOUNT_RATE is defined as a constant in this file (e.g., const DISCOUNT_RATE = 0.20;)
-    const DISCOUNT_RATE = 0.20;
-
-    // ✅ MODIFICATION: Calculate the discounted price (20% off)
-    const priceToSend = product.price * (1 - DISCOUNT_RATE);
-
-    // Determine the size to send
-    const finalSize = selectedSize || (product.sizes.length === 0 ? 'One Size' : null);
-    const quantity = 1;
-
     try {
       const token = localStorage.getItem('token');
-
-      // Use axios for consistency if possible, but fetch works too. Sticking to fetch as provided.
-      const response = await fetch(CART_API_URL, {
+      const finalSize = selectedSize || (product.sizes.length === 0 ? 'One Size' : null);
+      const priceToSend = parseFloat((product.price * (1 - DISCOUNT_RATE)).toFixed(2));
+      const res = await fetch(CART_API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          productId: product._id,
-          size: finalSize,
-          quantity: quantity,
-          // ✅ MODIFICATION: Send the discounted price (Product Details price rule)
-          price: parseFloat(priceToSend.toFixed(2)),
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ productId: product._id, size: finalSize, quantity: 1, price: priceToSend }),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage(data.message || 'Item added to cart successfully!');
-        refreshCart();
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } else {
-        setError(data.message || 'Failed to add item to cart. Please try again.');
-        setTimeout(() => setError(null), 5000);
-      }
-    } catch (err) {
-      console.error("Add to Cart Error:", err);
-      setError('A network error occurred while adding to cart.');
-      setTimeout(() => setError(null), 5000);
+      const data = await res.json();
+      if (res.ok) { showToast(data.message || 'Added to cart!'); refreshCart(); }
+      else showToast(data.message || 'Failed to add to cart.', 'error');
+    } catch {
+      showToast('A network error occurred.', 'error');
     } finally {
       setIsAdding(false);
     }
   };
 
-  // --- Derived Calculations for Display (can remain here) ---
-  const discountPercentage = DISCOUNT_RATE * 100;
-  // ----------------------------------------------------------
-
-  // --- Loading and Error States ---
-  if (loading) {
+  /* ── Not logged in ── */
+  if (!isLoggedIn) {
     return (
-      <div className="bg-gray-100 min-h-screen py-12 flex items-center justify-center">
-        <div className="text-xl font-semibold text-gray-700">
-          Searching for the best deals...
-        </div>
-      </div>
-    );
-  }
-
-  // Determine availability status based on stock
-  const isAvailable = product && product.stock > 0;
-  const isButtonDisabled = isAdding || !isAvailable || (product?.sizes.length > 0 && !selectedSize);
-
-  // Only show error state if there's an actual error, not if product is null during loading
-  if (error) {
-    return (
-      <div className="bg-gray-100 min-h-screen py-12 flex items-center justify-center px-4">
-        <div className="max-w-md w-full p-10 bg-white shadow-2xl rounded-xl text-center border-t-4 border-[#ea2e0e]">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Error Loading Product
-          </h2>
-          <p className="text-gray-600 mb-6">
-            {error}
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', padding: '48px 32px', fontFamily: "'Cormorant Garamond', serif" }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=DM+Sans:wght@300;400;500&display=swap');`}</style>
+        <div style={{ background: '#fff', border: '1px solid #e8e8e8', borderTop: `3px solid ${PRIMARY}`, padding: '48px 44px', maxWidth: 400, width: '100%', textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 56, color: '#f0f0f0', lineHeight: 1, marginBottom: 16 }}>🔒</div>
+          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: PRIMARY, marginBottom: 12 }}>Access Required</p>
+          <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, letterSpacing: '0.03em', color: '#111', marginBottom: 8 }}>Login to Continue</h2>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 15, color: '#888', marginBottom: 32, lineHeight: 1.65 }}>
+            You need to be logged in to view product details and make purchases.
           </p>
-          <div className="space-y-3">
-            <Link
-              to="/shop"
-              className="w-full block px-6 py-3 bg-[#ea2e0e] text-white font-semibold rounded-lg shadow-md hover:bg-[#c4250c] transition duration-200"
-            >
-              Browse Products
-            </Link>
-            <Link
-              to="/app"
-              className="block text-sm text-gray-500 hover:text-gray-700 transition duration-200"
-            >
-              ← Back to Home
-            </Link>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Link to="/login" style={{ display: 'block', padding: '13px', background: '#111', color: '#fff', fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', textDecoration: 'none', transition: 'background 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.background = PRIMARY} onMouseLeave={e => e.currentTarget.style.background = '#111'}>Log In →</Link>
+            <Link to="/signup" style={{ display: 'block', padding: '12px', background: 'transparent', color: '#111', fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', textDecoration: 'none', border: '1.5px solid #e0e0e0', transition: 'all 0.2s' }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#111'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#111'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#111'; e.currentTarget.style.borderColor = '#e0e0e0'; }}>Create Account</Link>
+            <Link to="/" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: '#bbb', textDecoration: 'none', marginTop: 4, display: 'block' }}>← Back to Home</Link>
           </div>
         </div>
       </div>
     );
   }
 
-  // Only show "not found" if we're not loading and product is still null
-  if (!loading && !product) {
+  /* ── Loading ── */
+  if (loading) return (
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 32px', fontFamily: "'Cormorant Garamond', serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');`}</style>
+      <DetailSkeleton />
+    </div>
+  );
+
+  /* ── Error / Not found ── */
+  if (error || !product) {
     return (
-      <div className="bg-gray-100 min-h-screen py-12 flex items-center justify-center px-4">
-        <div className="max-w-md w-full p-10 bg-white shadow-2xl rounded-xl text-center border-t-4 border-[#ea2e0e]">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Product Not Found
-          </h2>
-          <p className="text-gray-600 mb-6">
-            The requested product is currently unavailable.
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', padding: '48px 32px', fontFamily: "'Cormorant Garamond', serif" }}>
+        <div style={{ background: '#fff', border: '1px solid #e8e8e8', borderTop: `3px solid ${PRIMARY}`, padding: '48px 44px', maxWidth: 400, textAlign: 'center' }}>
+          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: PRIMARY, marginBottom: 12 }}>
+            {error === 'Product not found' ? 'Not Found' : 'Error'}
           </p>
-          <div className="space-y-3">
-            <Link
-              to="/shop"
-              className="w-full block px-6 py-3 bg-[#ea2e0e] text-white font-semibold rounded-lg shadow-md hover:bg-[#c4250c] transition duration-200"
-            >
-              Browse Products
-            </Link>
-            <Link
-              to="/app"
-              className="block text-sm text-gray-500 hover:text-gray-700 transition duration-200"
-            >
-              ← Back to Home
-            </Link>
-          </div>
+          <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, color: '#111', marginBottom: 8 }}>
+            {error === 'Product not found' ? 'Product Not Found' : 'Something Went Wrong'}
+          </h2>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 15, color: '#888', marginBottom: 32 }}>{error}</p>
+          <Link to="/shop" style={{ display: 'inline-block', padding: '13px 32px', background: '#111', color: '#fff', fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', textDecoration: 'none' }}>Browse Products</Link>
         </div>
       </div>
     );
   }
 
-  // Destructure product for clean rendering
-  const { name, description, imageUrls, sizes, stock, category } = product;
-  const imagesToDisplay = imageUrls.length > 0 ? imageUrls : [PLACEHOLDER_IMAGE];
-
+  const { name, description, imageUrls, sizes, stock, category, price } = product;
+  const images = imageUrls?.length ? imageUrls : [PLACEHOLDER];
+  const originalPrice = price;
+  const discountedPrice = originalPrice * (1 - DISCOUNT_RATE);
+  const isAvailable = stock > 0;
+  const isButtonDisabled = isAdding || !isAvailable || (sizes.length > 0 && !selectedSize);
 
   return (
-    // 🟢 Smaller container padding and fixed max-width for cleaner look
-    <div className="bg-gray-100 min-h-screen py-10 px-4">
-      <div className="max-w-5xl mx-auto bg-white shadow-2xl rounded-xl overflow-hidden md:flex">
+    <div style={{ background: '#fafafa', minHeight: '100vh', padding: '48px 32px', fontFamily: "'Cormorant Garamond', serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .thumb-img { cursor: pointer; transition: all 0.15s; border: 2px solid transparent; }
+        .thumb-img:hover { border-color: #111; }
+        .thumb-img.active { border-color: ${PRIMARY}; }
+        .size-btn { padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.06em; border: 1.5px solid #e0e0e0; background: #fff; cursor: pointer; transition: all 0.15s; color: #666; }
+        .size-btn:hover:not(:disabled) { border-color: #111; color: #111; }
+        .size-btn.selected { border-color: ${PRIMARY}; background: ${PRIMARY}; color: #fff; }
+        .size-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .add-btn { width: 100%; padding: 16px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; border: none; cursor: pointer; transition: all 0.2s; }
+        .add-btn:not(:disabled):hover { transform: translateY(-1px); }
+      `}</style>
 
-        {/* Image Gallery */}
-        {/* 🟢 Reduced padding and made image container slightly smaller (md:w-5/12) */}
-        <div className="md:w-5/12 p-4 md:p-6 flex flex-col items-center border-r border-gray-100">
-          {/* Main Image */}
-          <div className="w-full mb-4 aspect-square">
-            <img
-              src={selectedImage}
-              alt={name}
-              className="w-full h-full object-contain rounded-lg"
-            />
-          </div>
-          {/* Thumbnails */}
-          <div className="w-full flex justify-center space-x-3 overflow-x-auto pb-2">
-            {imagesToDisplay.map((url, index) => (
-              <img
-                key={index}
-                src={url}
-                alt={`${name} thumbnail ${index + 1}`}
-                // 🟢 Smaller thumbnails for better use of space
-                className={`w-20 h-20 object-cover rounded-md cursor-pointer transition-all duration-200 hover:opacity-80
-                  ${selectedImage === url
-                    ? "border-3 border-[#ea2e0e] shadow-md ring-2 ring-[#ea2e0e]"
-                    : "border border-gray-300"
-                  }`}
-                onClick={() => setSelectedImage(url)}
-              />
-            ))}
-          </div>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        {/* Breadcrumb */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 32, fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: '#bbb', letterSpacing: '0.08em' }}>
+          <Link to="/app" style={{ color: '#bbb', textDecoration: 'none', transition: 'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = '#111'} onMouseLeave={e => e.currentTarget.style.color = '#bbb'}>Home</Link>
+          <span>/</span>
+          <Link to="/shop" style={{ color: '#bbb', textDecoration: 'none', transition: 'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = '#111'} onMouseLeave={e => e.currentTarget.style.color = '#bbb'}>Shop</Link>
+          <span>/</span>
+          <span style={{ color: '#888' }}>{name}</span>
         </div>
 
-        {/* Product Details */}
-        {/* 🟢 Slightly larger detail container (md:w-7/12) and refined padding */}
-        <div className="md:w-7/12 p-6 md:p-8 flex flex-col justify-between">
-          <div>
-            <span className="text-sm font-semibold uppercase text-[#ea2e0e] mb-1 block">{category}</span>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              {name}
-            </h1>
+        {/* Main grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, background: '#fff', border: '1px solid #e8e8e8', animation: 'fadeIn 0.5s ease both' }}>
 
-            {/* Price and Stock Row (CONSOLIDATED) */}
-            <div className="flex flex-col mb-6 pt-3 border-t border-gray-100">
-              <div className="flex items-baseline">
-                {/* 🟢 Display Discounted Price */}
-                <span className="text-4xl font-extrabold text-[#ea2e0e] mr-4">
-                  {formatPrice(discountedPrice)}
-                </span>
-                {/* 🟢 Display Original Price */}
-                <span className="text-xl text-gray-500 line-through mr-3">
-                  {formatPrice(originalPrice)}
-                </span>
-                {/* 🟢 Display Discount Percentage (Fixed 20%) */}
-                <span className="text-sm font-bold text-green-700 bg-green-100 px-3 py-1 rounded-full">
-                  SAVE {discountPercentage.toFixed(0)}%
-                </span>
-              </div>
-
-              {/* 🟢 Display Stock */}
-              <div className="mt-2">
-                <span className={`text-md font-semibold ${stock > 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  {stock > 0 ? `In Stock: ${stock} items` : 'Currently Sold Out'}
-                </span>
-              </div>
+          {/* ── Left: Images ── */}
+          <div style={{ borderRight: '1px solid #e8e8e8', display: 'flex', flexDirection: 'column' }}>
+            {/* Main image */}
+            <div style={{ flex: 1, overflow: 'hidden', background: '#f5f4f2', aspectRatio: '3/4' }}>
+              <img src={selectedImage} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block', transition: 'opacity 0.25s' }} />
             </div>
-            {/* Status Messages */}
-            {successMessage && (
-              <div className="flex items-center p-3 mb-4 text-sm font-medium text-green-700 bg-green-100 rounded-lg border border-green-300">
-                <CheckIcon className="w-5 h-5 mr-2" />
-                {successMessage}
+
+            {/* Thumbnails */}
+            {images.length > 1 && (
+              <div style={{ padding: '16px', display: 'flex', gap: 8, borderTop: '1px solid #ebebeb', overflowX: 'auto' }}>
+                {images.map((url, i) => (
+                  <img key={i} src={url} alt={`${name} ${i+1}`} onClick={() => setSelectedImage(url)}
+                    className={`thumb-img ${selectedImage === url ? 'active' : ''}`}
+                    style={{ width: 68, height: 68, objectFit: 'cover', flexShrink: 0 }} />
+                ))}
               </div>
             )}
-            {error && (
-              <div className="p-3 mb-4 text-sm font-medium text-red-700 bg-red-100 rounded-lg border border-red-300">
-                {error}
+          </div>
+
+          {/* ── Right: Details ── */}
+          <div style={{ padding: '48px 48px 40px', display: 'flex', flexDirection: 'column' }}>
+            {/* Category */}
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: PRIMARY, marginBottom: 12 }}>◆ {category || 'Fashion'}</p>
+
+            {/* Name */}
+            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(36px, 4vw, 52px)', letterSpacing: '0.02em', lineHeight: 0.95, color: '#111', marginBottom: 28 }}>{name}</h1>
+
+            {/* Pricing */}
+            <div style={{ borderTop: '1px solid #ebebeb', borderBottom: '1px solid #ebebeb', padding: '20px 0', marginBottom: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 8 }}>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 30, fontWeight: 600, color: '#111' }}>
+                  Ksh {discountedPrice.toFixed(2)}
+                </span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 18, color: '#bbb', textDecoration: 'line-through' }}>
+                  Ksh {originalPrice.toFixed(2)}
+                </span>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#22c55e', background: '#f0fdf4', padding: '4px 10px', border: '1px solid #bbf7d0' }}>
+                  SAVE {(DISCOUNT_RATE*100).toFixed(0)}%
+                </span>
+              </div>
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, letterSpacing: '0.06em', color: isAvailable ? '#22c55e' : PRIMARY, fontWeight: 500 }}>
+                {isAvailable ? `✓ In Stock — ${stock} items available` : '✕ Currently Sold Out'}
+              </p>
+            </div>
+
+            {/* Toast */}
+            {toast && (
+              <div style={{
+                padding: '12px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8,
+                background: toast.type === 'success' ? '#f0fdf4' : '#fff5f5',
+                border: `1.5px solid ${toast.type === 'success' ? '#22c55e' : PRIMARY}`,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 13,
+                color: toast.type === 'success' ? '#166534' : '#b91c1c',
+                animation: 'fadeIn 0.3s ease',
+              }}>
+                {toast.type === 'success' ? '✓' : '✕'} {toast.msg}
               </div>
             )}
 
             {/* Description */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-              <p className="text-base text-gray-700 leading-relaxed">
-                {description}
-              </p>
+            <div style={{ marginBottom: 28 }}>
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#888', marginBottom: 10 }}>Description</p>
+              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 16, color: '#555', lineHeight: 1.8 }}>{description}</p>
             </div>
-          </div>
 
-          {/* Size Selection */}
-          <div className="mb-8 pt-4 border-t border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Select Size
-              {sizes.length === 0 && <span className="text-sm font-normal text-gray-500 ml-2">(One size fits all)</span>}
-            </h3>
-            <div className="flex flex-wrap gap-3">
+            {/* Size selection */}
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#888' }}>
+                  {sizes.length > 0 ? 'Select Size' : 'Size'}
+                </p>
+                {selectedSize && <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: PRIMARY, letterSpacing: '0.1em' }}>Selected: {selectedSize}</p>}
+              </div>
+
               {sizes.length > 0 ? (
-                sizes.map((size, index) => (
-                  <button
-                    key={index}
-                    disabled={stock === 0}
-                    className={`px-5 py-2 border-2 rounded-lg font-medium text-sm transition-all duration-200 
-                      ${selectedSize === size
-                        ? "bg-[#ea2e0e] text-white border-[#ea2e0e] shadow-md"
-                        : "bg-white text-gray-800 border-gray-300 hover:bg-gray-50"
-                      }
-                      ${stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}
-                    `}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {size}
-                  </button>
-                ))
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {sizes.map(size => (
+                    <button key={size} onClick={() => setSelectedSize(size)} disabled={!isAvailable}
+                      className={`size-btn ${selectedSize === size ? 'selected' : ''}`}>
+                      {size}
+                    </button>
+                  ))}
+                </div>
               ) : (
-                <button
-                  disabled={stock === 0}
-                  className={`px-5 py-2 border-2 rounded-lg font-medium text-sm opacity-70 
-                      ${stock === 0 ? 'bg-gray-200 cursor-not-allowed' : 'bg-gray-100 text-gray-500'}`}
-                >
-                  One Size
-                </button>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: '#888', letterSpacing: '0.06em' }}>One Size Fits All</span>
               )}
             </div>
-          </div>
 
-          {/* Add to Cart Button */}
-          <button
-            onClick={handleAddToCart}
-            className={`w-full py-4 text-xl font-bold text-white rounded-lg shadow-lg transition-all duration-300 
-                ${!isButtonDisabled
-                ? 'bg-[#ea2e0e] hover:bg-[#c4250c] active:scale-[0.99]'
-                : 'bg-gray-400 cursor-not-allowed'
-              }`
-            }
-            disabled={isButtonDisabled}
-          >
-            {isAdding
-              ? 'Adding...'
-              : !isAvailable
-                ? 'Notify Me When Available'
-                : (sizes.length > 0 && !selectedSize)
-                  ? 'Select Size to Add'
-                  : 'Add to Cart'
-            }
-          </button>
+            {/* Add to cart */}
+            <button onClick={handleAddToCart} disabled={isButtonDisabled} className="add-btn"
+              style={{
+                background: isButtonDisabled ? '#f0f0f0' : '#111',
+                color: isButtonDisabled ? '#bbb' : '#fff',
+                cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
+                marginBottom: 12,
+              }}
+              onMouseEnter={e => { if (!isButtonDisabled) e.currentTarget.style.background = PRIMARY; }}
+              onMouseLeave={e => { if (!isButtonDisabled) e.currentTarget.style.background = '#111'; }}
+            >
+              {isAdding ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                  <span style={{ width: 14, height: 14, border: '1.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                  Adding to Cart
+                </span>
+              ) : !isAvailable ? 'Notify Me When Available'
+                : sizes.length > 0 && !selectedSize ? 'Select a Size to Continue'
+                : 'Add to Cart →'}
+            </button>
+
+            {/* Back link */}
+            <Link to="/shop" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: '#bbb', textDecoration: 'none', textAlign: 'center', letterSpacing: '0.06em', transition: 'color 0.15s', display: 'block' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#111'} onMouseLeave={e => e.currentTarget.style.color = '#bbb'}>
+              ← Continue Shopping
+            </Link>
+          </div>
         </div>
       </div>
     </div>
