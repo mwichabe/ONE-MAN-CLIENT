@@ -183,9 +183,9 @@ const Login = () => {
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 28, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
             {[
-              { value: '2000', suffix: '+', label: 'Members' },
-              { value: '500',  suffix: '+', label: 'Products' },
-              { value: '99',   suffix: '%', label: 'Satisfied' },
+              { value: '0+', suffix: '+', label: 'Members' },
+              { value: '50+',  suffix: '+', label: 'Products' },
+              { value: '50',   suffix: '%', label: 'Satisfied' },
             ].map(s => (
               <div key={s.label}>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: '#fff', letterSpacing: '0.04em', lineHeight: 1 }}>
